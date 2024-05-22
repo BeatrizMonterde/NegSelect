@@ -14,42 +14,42 @@ library(stats)
 ## Function to set working directory, read files, and perform calculations
 process_immunopeptidome <- function(immunopeptidome_file, primary_file, metastasis_file, annotated_file) {
   
-  # Read the immunopeptidome bed file
+  ### Read the immunopeptidome bed file
   immunopeptidome <- read.delim(immunopeptidome_file, sep = "\t", header = FALSE, col.names = c("Transcript_ID", "Start", "End"))
   
-  # Calculate the number of immunogenic amino acids
+  ### Calculate the number of immunogenic amino acids
   Im <- sum(immunopeptidome$End - immunopeptidome$Start)
   
-  # Calculate the number of immunogenic base pairs
+  ### Calculate the number of immunogenic base pairs
   Im_bp <- Im * 3
   
-  # Calculate the mutation rate WGS
+  ### Calculate the mutation rate WGS
   p <- Im_bp / (3 * 10^9)
   
-  # Read the filtered data for primary and metastasis samples
+  ### Read the filtered data for primary and metastasis samples
   primary <- read.csv(primary_file, sep = "\t", header = TRUE)
   metastasis <- read.csv(metastasis_file, sep = "\t", header = TRUE)
   
-  # Calculate the number of rows for primary and metastasis samples
+  ### Calculate the number of rows for primary and metastasis samples
   nrows_primary <- nrow(primary)
   nrows_metastasis <- nrow(metastasis)
   
-  # Calculate the expected values for primary and metastasis samples
+  ### Calculate the expected values for primary and metastasis samples
   exp_primary <- p * nrows_primary
   exp_metastasis <- p * nrows_metastasis
   
-  # Read the SOPRANO results
+  ### Read the SOPRANO results
   annot <- read.delim(annotated_file, sep = "\t", header = FALSE)
   
-  # Extract the observed values for primary and metastasis samples
+  ### Extract the observed values for primary and metastasis samples
   obs_primary <- annot[annot$V1 == "Primary", "V2"]
   obs_metastasis <- annot[annot$V1 == "Metastasis", "V2"]
   
-  # Calculate the ppois value for primary and metastasis samples
-  ppois_primary <- ppois(obs_primary, lambda = exp_primary)
-  ppois_metastasis <- ppois(obs_metastasis, lambda = exp_metastasis)
+  ### Calculate the ppois value for primary and metastasis samples
+  ppois_primary <- ppois(obs_primary, lambda = exp_primary, lower.tail=TRUE)
+  ppois_metastasis <- ppois(obs_metastasis, lambda = exp_metastasis, lower.tail=TRUE)
   
-  # Create a final dataframe to store the results
+  ### Create a final dataframe to store the results
   final_df <- data.frame(
     Sample = c("Primary", "Metastasis"),
     Size_Im = rep(Im_bp, 2),  # Add Im_bp column
@@ -62,7 +62,7 @@ process_immunopeptidome <- function(immunopeptidome_file, primary_file, metastas
   return(final_df)
 }
 
-# Ideally, you should construct a final_df with this structure 
+### Ideally, you should construct a final_df with this structure 
 > head(final_df)
                     Sample   Im_bp        p_Im Total_muts Observed Expected     ppois
 1        ES0001_Metastasis 1606785 0.000535595       3538        2 1.894935 0.4351901
@@ -72,22 +72,22 @@ process_immunopeptidome <- function(immunopeptidome_file, primary_file, metastas
 5 ES0002_Metastasis_Lung_3 1562901 0.000520967       2748        1 1.431617 0.5809674
 6 ES0002_Metastasis_Lung_4 1562901 0.000520967       2677        1 1.394629 0.2479251
 
-# Combinatorial analysis and Poisson test
+## Combinatorial analysis and Poisson test
 library(purrr)
 
-# Function to process data for primary or metastasis samples
+## Function to process data for primary or metastasis samples
 process_samples <- function(final_results_file, sample_type, output_file) {
   
-  # Read the data
+  ### Read the data
   final_results <- read.delim(final_results_file, sep = "\t")
   
-  # Filter based on sample type (Primary or Metastasis)
+  ### Filter based on sample type (Primary or Metastasis)
   samples_data <- final_results %>% filter(grepl(sample_type, Sample))
   
   mean(samples_data$Observed, na.rm = TRUE)
   mean(samples_data$Expected, na.rm = TRUE)
   
-  # Function to calculate ppois for a given combination of samples
+  ### Function to calculate ppois for a given combination of samples
   calculate_ppois <- function(samples, data) {
     sample_data <- data %>% filter(Sample %in% samples)
     
@@ -104,20 +104,20 @@ process_samples <- function(final_results_file, sample_type, output_file) {
                       Observed_Muts = observed_muts, ppois = ppois_value))
   }
   
-  # Initialize a list to store results
+  ### Initialize a list to store results
   results <- list()
   
-  # Determine the number of samples
+  ### Determine the number of samples
   num_samples <- nrow(samples_data)
   
-  # Iterate over all cohort sizes from n=1 to the number of samples
+  ### Iterate over all cohort sizes from n=1 to the number of samples
   for (n in 1:num_samples) {
     combinations <- combn(samples_data$Sample, n, simplify = FALSE)
     cohort_results <- map_df(combinations, calculate_ppois, data = samples_data)
     results <- append(results, list(cohort_results))
   }
   
-  # Combine all results into a single dataframe
+  ### Combine all results into a single dataframe
   results_df <- bind_rows(results)
   
   mean(results_df$Observed_Muts, na.rm = TRUE)
@@ -130,17 +130,17 @@ process_samples <- function(final_results_file, sample_type, output_file) {
 # SISMO: generate somatic mutations based on the trinucleotide context 
 https://github.com/luisgls/SISMO
 
-# Generate ~ 100 simulations per sample 
+Generate ~ 100 simulations per sample 
 
-# Poisson graph comparing 2 groups 
-# Create a final_df containing the information from primary, metastasis and their null distributions
+## Poisson graph comparing 2 groups 
+### Create a final_df containing the information from primary, metastasis and their null distributions
 
 final_df <- bind_rows(primary, metastasis, null_P, null_M)
 
-# Transform Y values to -log(Y)
+### Transform Y values to -log(Y)
 final_df$neglog_Y <- -log(final_df2$Y)
 
-# Create the ggplot
+### Create the ggplot
 ggplot(final_df_v2, aes(x = X, y = neglog_Y, color = factor(Site))) +
   geom_hline(yintercept = -log(0.05), linetype = "dashed", color = "grey24") +
   stat_summary(fun = mean, geom = "point") +
