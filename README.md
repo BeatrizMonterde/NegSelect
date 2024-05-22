@@ -11,7 +11,7 @@ Required information:
 library(dplyr)
 library(stats)
 
-# Function to set working directory, read files, and perform calculations
+## Function to set working directory, read files, and perform calculations
 process_immunopeptidome <- function(immunopeptidome_file, primary_file, metastasis_file, annotated_file) {
   
   # Read the immunopeptidome bed file
